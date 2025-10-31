@@ -4,7 +4,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
-import { ChevronDown, Check, Pencil, Plus, Trash2, Loader2 } from 'lucide-react';
+import { ChevronDown, Check, Pencil, Plus, Trash2, Loader2, FileText, Video, Image as ImageIcon } from 'lucide-react';
 import { cn } from './ui/utils';
 import { MessageEditDialog } from './MessageEditDialog';
 import { CreateMessageGroupDialog } from './CreateMessageGroupDialog';
@@ -15,6 +15,8 @@ interface Message {
   id: number;
   categoria: string;
   conteudo: string;
+  midiaExtension?: string;
+  midiaBase64?: string;
 }
 
 interface MessageGroup {
@@ -146,11 +148,35 @@ export function MessageSelector({ messages, onSelectMessage, onUpdateMessage, on
             <Check className="h-4 w-4 text-primary" />
             <span className="text-sm">Mensagens selecionadas:</span>
           </div>
-          <div className="pl-6 space-y-2">
+          <div className="pl-6 space-y-3">
             {selectedMessage.mensagens.map((msg) => (
-              <div key={msg.id} className="space-y-1">
+              <div key={msg.id} className="space-y-2">
                 <p className="font-medium">{msg.categoria}</p>
-                <p className="text-sm text-muted-foreground">{msg.conteudo}</p>
+                <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                  {msg.midiaBase64 && msg.midiaExtension && (
+                    <div className="mb-2">
+                      {msg.midiaExtension.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <ImageIcon className="w-4 h-4" />
+                          <span>Imagem anexada</span>
+                        </div>
+                      ) : msg.midiaExtension === '.mp4' ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Video className="w-4 h-4" />
+                          <span>Vídeo anexado</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <FileText className="w-4 h-4" />
+                          <span>Arquivo anexado ({msg.midiaExtension})</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {msg.conteudo && (
+                    <p className="text-sm text-muted-foreground">{msg.conteudo}</p>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -196,11 +222,35 @@ export function MessageSelector({ messages, onSelectMessage, onUpdateMessage, on
                         </div>
                       </div>
                       
-                      <div className="space-y-2 pl-3 border-l-2 border-muted">
+                      <div className="space-y-3 pl-3 border-l-2 border-muted">
                         {group.mensagens.map((msg) => (
-                          <div key={msg.id} className="space-y-1">
+                          <div key={msg.id} className="space-y-2">
                             <p className="font-medium">{msg.categoria}</p>
-                            <p className="text-sm text-muted-foreground">{msg.conteudo}</p>
+                            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                              {msg.midiaBase64 && msg.midiaExtension && (
+                                <div className="mb-2">
+                                  {msg.midiaExtension.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                      <ImageIcon className="w-4 h-4" />
+                                      <span>Imagem anexada</span>
+                                    </div>
+                                  ) : msg.midiaExtension === '.mp4' ? (
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                      <Video className="w-4 h-4" />
+                                      <span>Vídeo anexado</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                      <FileText className="w-4 h-4" />
+                                      <span>Arquivo anexado ({msg.midiaExtension})</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {msg.conteudo && (
+                                <p className="text-sm text-muted-foreground">{msg.conteudo}</p>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -284,11 +334,19 @@ export function MessageSelector({ messages, onSelectMessage, onUpdateMessage, on
             </AlertDialogDescription>
           </AlertDialogHeader>
           {messageToDelete && (
-            <div className="rounded-md border bg-muted/30 p-4 space-y-2 max-h-[200px] overflow-y-auto">
+            <div className="rounded-md border bg-muted/30 p-4 space-y-3 max-h-[200px] overflow-y-auto">
               {messageToDelete.mensagens.map((msg) => (
-                <div key={msg.id} className="space-y-1">
+                <div key={msg.id} className="space-y-2">
                   <p className="font-medium text-sm">{msg.categoria}</p>
-                  <p className="text-sm text-muted-foreground">{msg.conteudo}</p>
+                  {msg.midiaBase64 && msg.midiaExtension && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <ImageIcon className="w-3 h-3" />
+                      <span className="text-xs">Mídia anexada</span>
+                    </div>
+                  )}
+                  {msg.conteudo && (
+                    <p className="text-sm text-muted-foreground">{msg.conteudo}</p>
+                  )}
                 </div>
               ))}
             </div>

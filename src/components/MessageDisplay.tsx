@@ -3,11 +3,14 @@ import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Label } from './ui/label';
 import { ScrollArea } from './ui/scroll-area';
 import { Separator } from './ui/separator';
+import { FileText, Video } from 'lucide-react';
 
 interface Message {
   id: number;
   categoria: string;
   conteudo: string;
+  midiaExtension?: string;
+  midiaBase64?: string;
 }
 
 interface MessageGroup {
@@ -57,11 +60,43 @@ export function MessageDisplay({ messages, onSelectMessage }: MessageDisplayProp
                       Grupo de Mensagens #{index + 1}
                     </Label>
                     
-                    <div className="pl-4 space-y-3 border-l-2 border-muted">
+                    <div className="pl-4 space-y-4 border-l-2 border-muted">
                       {group.mensagens.map((msg) => (
-                        <div key={msg.id} className="space-y-1">
+                        <div key={msg.id} className="space-y-2">
                           <p className="font-medium">{msg.categoria}</p>
-                          <p className="text-muted-foreground">{msg.conteudo}</p>
+                          
+                          {/* Estilo WhatsApp: Mídia em cima, texto embaixo */}
+                          <div className="bg-muted/30 rounded-lg p-3 space-y-2 max-w-md">
+                            {/* Exibir mídia se existir */}
+                            {msg.midiaBase64 && msg.midiaExtension && (
+                              <div className="mb-2">
+                                {msg.midiaExtension.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                                  <img
+                                    src={`data:image/${msg.midiaExtension.substring(1)};base64,${msg.midiaBase64}`}
+                                    alt="Mídia da mensagem"
+                                    className="w-full h-auto rounded"
+                                  />
+                                ) : msg.midiaExtension === '.mp4' ? (
+                                  <div className="flex items-center gap-2 p-3 bg-background rounded">
+                                    <Video className="w-5 h-5 text-primary" />
+                                    <span className="text-sm">Vídeo anexado ({msg.midiaExtension})</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 p-3 bg-background rounded">
+                                    <FileText className="w-5 h-5 text-primary" />
+                                    <span className="text-sm">Arquivo anexado ({msg.midiaExtension})</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Texto da mensagem */}
+                            {msg.conteudo && (
+                              <p className="text-muted-foreground whitespace-pre-wrap">
+                                {msg.conteudo}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>

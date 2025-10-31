@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { MessageSelector } from './components/MessageSelector';
+import { CreateMessageGroupDialog } from './components/CreateMessageGroupDialog';
 import { Card } from './components/ui/card';
 import { Button } from './components/ui/button';
-import { Send, Loader2, CheckCircle2 } from 'lucide-react';
+import { Send, Loader2, CheckCircle2, Plus } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 
 export default function App() {
@@ -13,6 +14,103 @@ export default function App() {
   const [dispatchSuccess, setDispatchSuccess] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [spreadsheetData, setSpreadsheetData] = useState<any[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+  // Função para agrupar mensagens por disparo_id e ordenar por id
+  const groupMessagesByDisparoId = (flatMessages: any[]) => {
+    // Ordenar por id primeiro
+    const sortedMessages = [...flatMessages].sort((a, b) => a.id - b.id);
+    
+    // Agrupar por disparo_id
+    const grouped = sortedMessages.reduce((acc, item) => {
+      const key = item.disparo_id.toString();
+      if (!acc[key]) {
+        acc[key] = {
+          disparo_id: item.disparo_id,
+          mensagens: []
+        };
+      }
+
+      // Parse do campo conteudo se vier como string JSON
+      let messageData = {
+        conteudo: item.conteudo,
+        midiaExtension: item.midiaExtension,
+        midiaBase64: item.midiaBase64
+      };
+
+      try {
+        // Tentar fazer parse do conteudo como JSON
+        if (typeof item.conteudo === 'string' && item.conteudo.trim().startsWith('[')) {
+          const parsedContent = JSON.parse(item.conteudo);
+          
+          // Se for um array, pegar o primeiro elemento
+          if (Array.isArray(parsedContent) && parsedContent.length > 0) {
+            const contentObj = parsedContent[0];
+            messageData = {
+              conteudo: contentObj.messageText || '',
+              midiaExtension: contentObj.midiaExtension || undefined,
+              midiaBase64: contentObj.midiaBase64 || undefined
+            };
+          }
+        }
+      } catch (e) {
+        // Se não for JSON válido, manter os valores originais
+        console.warn('Não foi possível fazer parse do conteudo:', e);
+      }
+
+      acc[key].mensagens.push({
+        id: item.id,
+        categoria: item.categoria,
+        conteudo: messageData.conteudo,
+        midiaExtension: messageData.midiaExtension,
+        midiaBase64: messageData.midiaBase64
+      });
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Converter para array e ordenar por disparo_id
+    return Object.values(grouped).sort((a, b) => a.disparo_id - b.disparo_id);
+  };
+
+  // Carregar mensagens automaticamente ao montar o componente
+  useEffect(() => {
+    const fetchMessages = async () => {
+      setLoadingMessages(true);
+
+      try {
+        const response = await fetch('https://dev.gruponfa.com/webhook/cvale-busca-mensagem', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ data: [] }), // Enviar array vazio para buscar todas as mensagens
+        });
+
+        if (!response.ok) {
+          throw new Error('Erro ao buscar mensagens do webhook');
+        }
+
+        const flatMessages = await response.json();
+        
+        // Se a resposta for um array vazio ou não houver mensagens, definir como array vazio
+        if (Array.isArray(flatMessages) && flatMessages.length > 0) {
+          const groupedMessages = groupMessagesByDisparoId(flatMessages);
+          setMessages(groupedMessages);
+        } else {
+          setMessages([]);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar mensagens:', error);
+        toast.error('Erro ao buscar mensagens.');
+        setMessages([]);
+      } finally {
+        setLoadingMessages(false);
+      }
+    };
+
+    fetchMessages();
+  }, []);
 
   const handleUpdateMessage = (updatedGroup: any) => {
     // Atualizar a lista de mensagens com o grupo editado
@@ -106,6 +204,15 @@ export default function App() {
       }
       
       setDispatchSuccess(true);
+      
+      // Reiniciar a tela após 3 segundos
+      setTimeout(() => {
+        setUploadedFile(null);
+        setSpreadsheetData([]);
+        setSelectedMessage(null);
+        setDispatchSuccess(false);
+        toast.info('Importe uma nova planilha para continuar');
+      }, 3000);
     } catch (error) {
       console.error('Erro ao disparar mensagem:', error);
       toast.error('Erro ao disparar mensagem. Tente novamente.');
@@ -120,7 +227,7 @@ export default function App() {
         <div className="mb-8">
           <h1>Sistema de Disparo de Mensagens</h1>
           <p className="text-muted-foreground mt-2">
-            Importe um arquivo CSV ou XLSX para buscar e disparar mensagens
+            Importe um arquivo CSV ou XLSX para disparar mensagens
           </p>
         </div>
 
@@ -128,23 +235,63 @@ export default function App() {
           {/* Upload de Arquivo */}
           <Card className="p-6">
             <FileUpload 
-              onMessagesReceived={setMessages}
+              uploadedFile={uploadedFile}
               onFileSelected={setUploadedFile}
               onSpreadsheetDataExtracted={setSpreadsheetData}
             />
           </Card>
 
-          {/* Definir Mensagem */}
-          {messages && (
-            <Card className="p-6">
-              <MessageSelector 
-                messages={messages}
-                onSelectMessage={setSelectedMessage}
-                onUpdateMessage={handleUpdateMessage}
-                onCreateMessage={handleCreateMessage}
-                onDeleteMessage={handleDeleteMessage}
-              />
-            </Card>
+          {/* Definir Mensagem - só aparece após importar arquivo */}
+          {uploadedFile && (
+            <>
+              {loadingMessages ? (
+                <Card className="p-6">
+                  <div className="flex items-center justify-center py-12">
+                    <div className="flex flex-col items-center gap-4">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      <p className="text-muted-foreground">Carregando mensagens disponíveis...</p>
+                    </div>
+                  </div>
+                </Card>
+              ) : messages && messages.length > 0 ? (
+                <Card className="p-6">
+                  <MessageSelector 
+                    messages={messages}
+                    onSelectMessage={setSelectedMessage}
+                    onUpdateMessage={handleUpdateMessage}
+                    onCreateMessage={handleCreateMessage}
+                    onDeleteMessage={handleDeleteMessage}
+                  />
+                </Card>
+              ) : messages && messages.length === 0 ? (
+                <Card className="p-6">
+                  <div className="space-y-4">
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground mb-4">
+                        Nenhum grupo de mensagens cadastrado
+                      </p>
+                      <Button
+                        onClick={() => setCreateDialogOpen(true)}
+                        size="lg"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Criar Primeiro Grupo de Mensagens
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ) : null}
+              
+              {/* Dialog de Criação - usado quando não há mensagens */}
+              {messages && messages.length === 0 && (
+                <CreateMessageGroupDialog
+                  open={createDialogOpen}
+                  onOpenChange={setCreateDialogOpen}
+                  maxDisparoId={0}
+                  onCreate={handleCreateMessage}
+                />
+              )}
+            </>
           )}
         </div>
       </div>
